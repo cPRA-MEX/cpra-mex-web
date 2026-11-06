@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cpra-mex-api-725903574894.us-central1.run.app; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Calculadora de PRA calculado (cPRA) con frecuencias haplotípicas HLA de donantes mexicanos. Uso en investigación.">
+  <title>cPRA-MEX · Calculadora de PRA calculado</title>
+  <!-- Dirección del servidor de cálculo (Cloud Run). Si cambia, actualícela aquí y en connect-src. -->
+  <meta name="cpra-api" content="https://cpra-mex-api-725903574894.us-central1.run.app">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="contenedor barra-interior">
+      <span class="marca">cPRA-MEX</span>
+      <nav class="pestanas" role="tablist" aria-label="Secciones">
+        <button type="button" role="tab" id="tab-calculadora" aria-controls="panel-calculadora" aria-selected="true">Calculadora</button>
+        <button type="button" role="tab" id="tab-lote" aria-controls="panel-lote" aria-selected="false" tabindex="-1">Varios pacientes</button>
+        <button type="button" role="tab" id="tab-metodos" aria-controls="panel-metodos" aria-selected="false" tabindex="-1">Metodología y limitaciones</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    <noscript><p class="aviso aviso-error">Esta calculadora necesita JavaScript.</p></noscript>
+    <div id="carga" class="aviso aviso-info" role="status">Conectando con el servidor de cálculo…</div>
+    <div class="declaracion" role="note">
+      <p><strong>Uso exclusivo en investigación.</strong> cPRA-MEX no es un sistema oficial de asignación y no sustituye la prueba cruzada, la evaluación del laboratorio de histocompatibilidad ni el juicio clínico.</p>
+      <p>Frecuencias haplotípicas: donantes del centro NMDP México, publicadas en Madbouly A, et al. <cite>Hum Immunol</cite>. 2025;86(4):111324. <a href="https://doi.org/10.1016/j.humimm.2025.111324" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.humimm.2025.111324</a></p>
+    </div>
+
+    <section id="panel-calculadora" role="tabpanel" aria-labelledby="tab-calculadora">
+      <p class="entradilla">PRA calculado con frecuencias haplotípicas HLA de donantes mexicanos.</p>
+      <div class="dos-columnas">
+        <div class="tarjeta">
+          <h2 class="tarjeta-titulo">Antígenos inaceptables</h2>
+          <div class="tarjeta-cuerpo">
+            <label for="ua-texto" class="rotulo-campo">Antígenos o alelos HLA</label>
+            <div class="selector">
+              <div id="ua-caja" class="fichas">
+                <input id="ua-texto" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ua-sugerencias"
+                       placeholder="Ej.: A2, B35, Cw7, DR51, DQ7, DRB1*04:07">
+              </div>
+              <ul id="ua-sugerencias" class="sugerencias" role="listbox" hidden></ul>
+            </div>
+            <p class="ayuda">Escriba o pegue la lista separada por comas o espacios, tal como aparece en el reporte de PRA: como antígeno (A2, Cw7, Bw4, DR17) o como alelo (DRB1*04:07). Al escribir el asterisco, por ejemplo <strong>DRB1*</strong>, se despliegan los alelos disponibles.</p>
+            <details class="explica">
+              <summary>¿Qué es un antígeno inaceptable?</summary>
+              <p>Es un antígeno HLA contra el que el paciente tiene anticuerpos y que, por eso, su programa de trasplante decide evitar en un donante. Cada programa lo define a partir del PRA, según el valor de MFI y el criterio del laboratorio y del equipo clínico.</p>
+              <p><strong>Ejemplo:</strong> si el PRA muestra anticuerpos contra A2, B35 y DR51 por arriba del umbral de su programa, se escriben A2, B35 y DR51. El resultado es un cPRA de 75%: de cada 100 donantes, unos 75 tendrían al menos uno de esos antígenos y unos 25 serían compatibles.</p>
+            </details>
+            <label for="pool" class="rotulo-campo">Población de referencia</label>
+            <select id="pool" class="campo">
+              <option value="NACIONAL">Nacional (recomendada)</option>
+              <option value="CENTER">Centro</option>
+              <option value="CTRGULF">Centro-Golfo</option>
+              <option value="MAYA">Maya</option>
+              <option value="NORTH">Norte</option>
+              <option value="OCCIDENTE">Occidente</option>
+            </select>
+            <p class="ayuda">La referencia nacional combina las cinco regiones. Puede cambiar de región sin volver a calcular.</p>
+            <div class="botones">
+              <button type="button" id="calcular" class="boton boton-primario" disabled>Calcular cPRA</button>
+              <button type="button" id="limpiar" class="boton">Limpiar</button>
+              <button type="button" id="ejemplo" class="boton-enlace">Cargar ejemplo</button>
+            </div>
+            <p class="ayuda privacidad">La lista de antígenos se envía al servidor de cPRA-MEX solo para calcular y no se guarda.</p>
+          </div>
+        </div>
+        <div id="resultado" aria-live="polite">
+          <div class="vacio">Indique los antígenos inaceptables y presione «Calcular cPRA».</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-lote" role="tabpanel" aria-labelledby="tab-lote" hidden>
+      <div class="dos-columnas">
+        <div class="tarjeta">
+          <h2 class="tarjeta-titulo">Archivo de pacientes</h2>
+          <div class="tarjeta-cuerpo">
+            <p class="ayuda">Archivo CSV con encabezados: la primera columna con un identificador y, a partir de la segunda, los antígenos inaceptables (en una o varias columnas, separados por comas, punto y coma o espacios). Desde Excel: «Guardar como → CSV UTF-8». No incluya nombres ni expedientes.</p>
+            <p class="ayuda privacidad">El archivo se lee en este navegador; al servidor solo se envían el identificador y los antígenos de cada fila para calcular, y no se guardan.</p>
+            <label for="archivo" class="rotulo-campo">Seleccionar archivo</label>
+            <input type="file" id="archivo" class="campo" accept=".csv,.txt,text/csv">
+            <label for="pool-lote" class="rotulo-campo">Población de referencia</label>
+            <select id="pool-lote" class="campo">
+              <option value="NACIONAL">Nacional (recomendada)</option>
+              <option value="CENTER">Centro</option>
+              <option value="CTRGULF">Centro-Golfo</option>
+              <option value="MAYA">Maya</option>
+              <option value="NORTH">Norte</option>
+              <option value="OCCIDENTE">Occidente</option>
+            </select>
+            <div class="botones">
+              <button type="button" id="procesar" class="boton boton-primario" disabled>Procesar archivo</button>
+              <button type="button" id="descargar" class="boton" disabled>Descargar resultados</button>
+            </div>
+          </div>
+        </div>
+        <div class="tarjeta">
+          <h2 class="tarjeta-titulo">Resultados</h2>
+          <div class="tarjeta-cuerpo" id="lote" aria-live="polite">
+            <div class="vacio">Los resultados aparecerán aquí.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-metodos" role="tabpanel" aria-labelledby="tab-metodos" hidden>
+      <div class="texto">
+        <h2>Qué es un antígeno inaceptable</h2>
+        <p>Es un antígeno HLA contra el que el paciente en espera de trasplante tiene anticuerpos y que, por eso, su programa decide evitar en un donante. Un donante que porta alguno de ellos se considera incompatible para ese paciente.</p>
+        <p>Esta calculadora no decide qué antígenos son inaceptables. Cada programa de trasplante los define a partir del estudio de anticuerpos anti-HLA (PRA por antígeno aislado), según la intensidad de cada anticuerpo (MFI), el umbral que use el laboratorio y la decisión del equipo clínico.</p>
+        <p><strong>Ejemplo.</strong> El PRA de un paciente muestra anticuerpos contra A2, B35 y DR51 con MFI por arriba del umbral de su programa (por ejemplo, 3,000). Se escriben A2, B35 y DR51 y la calculadora devuelve un cPRA de 75%: de cada 100 donantes de la población de referencia, unos 75 portarían al menos uno de esos antígenos y unos 25 serían compatibles.</p>
+        <p>Escriba cada especificidad con la resolución que reporte el PRA: como antígeno (A2, DR51) o como alelo a dos campos (DRB1*04:07).</p>
+        <h2>Qué calcula</h2>
+        <p>El cPRA (PRA calculado) estima el porcentaje de donantes de una población de referencia que portan al menos uno de los antígenos HLA inaceptables de un candidato. cPRA-MEX usa frecuencias haplotípicas de donantes mexicanos en lugar de una referencia de Estados Unidos.</p>
+        <p>Si <em>p</em> es la frecuencia de los haplotipos de la referencia que portan al menos un antígeno inaceptable, entonces cPRA = 1 − (1 − <em>p</em>)², bajo el supuesto de apareamiento aleatorio de los dos haplotipos. Los valores por clase y por locus repiten el cálculo con el subconjunto correspondiente de antígenos.</p>
+        <h2>Población de referencia</h2>
+        <p>Frecuencias de haplotipos de nueve posiciones (HLA-A, -C, -B, -DRB3/4/5, -DRB1, -DQB1, -DQA1, -DPA1 y -DPB1) de donantes voluntarios del centro NMDP México, agrupados en cinco regiones según su estado de residencia (Madbouly A, et al. <cite>Hum Immunol</cite>. 2025;86(4):111324. <a href="https://doi.org/10.1016/j.humimm.2025.111324" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.humimm.2025.111324</a>). El pool nacional pondera cada región por su tamaño efectivo.</p>
+        <div id="tabla-regiones"></div>
+        <h2>Cómo se interpretan las entradas</h2>
+        <ul>
+          <li><strong>Antígenos</strong> (A2, B35, Cw7, DR17, DR51, DQ7): se traducen a alelos con las equivalencias serológicas asignadas por la OMS (IPD-IMGT/HLA 3.65.0); DR103 corresponde a DRB1*01:03 y DPx a DPB1*x, como en OPTN. Bw4 y Bw6 se evalúan solo en HLA-B (tabla HATS). DQ y DP serológicos se asignan a la cadena beta (DQB1, DPB1). Los alelos nulos no portan antígeno. No se aceptan antígenos inexistentes (por ejemplo, DR41).</li>
+          <li><strong>Alelos a dos campos</strong> (DRB1*04:07, DQA1*05:01): se comparan por grupo P de IPD-IMGT/HLA 3.65.0, es decir, con todas las etiquetas de la referencia que codifican el mismo dominio de reconocimiento antigénico. La referencia mexicana está reducida a ese nivel, por lo que una etiqueta como DRB4*01:01 representa a todo su grupo. Es la misma regla del análisis del artículo.</li>
+          <li><strong>Primer campo</strong> (DQA1*05, DRB3*02): incluye todos los alelos de la referencia con ese primer campo.</li>
+          <li><strong>Designaciones a nivel alélico</strong> (A0201, Cw0702, B4402): la OMS las asigna a un alelo concreto, de modo que A0201 equivale a A*02:01 y no a todo el grupo A2. Si en su reporte esa etiqueta representa a toda la especificidad serológica, escriba el antígeno (A2) o el alelo con asterisco; la tabla del final le muestra la diferencia.</li>
+          <li>DQA1, DQB1, DPA1 y DPB1 se evalúan como cadenas individuales, no como heterodímeros. Si el reporte de PRA indica un par (por ejemplo, DQA1*05:01/DQB1*02:01), escriba las cadenas que su programa considera inaceptables.</li>
+        </ul>
+        <h2>Equivalencias serológicas: qué significa cada columna</h2>
+        <p>Debajo del resultado, la tabla «Cómo se interpretó cada entrada» indica la equivalencia serológica que la OMS asigna en IPD-IMGT/HLA 3.65.0 a lo que usted escribió. La asignación tiene tres niveles:</p>
+        <ul>
+          <li><strong>Antígeno amplio</strong>: la especificidad original, anterior a que el suero permitiera separarla (por ejemplo B12, A9, DR3). Incluye a todos sus splits.</li>
+          <li><strong>Split</strong>: la subdivisión de un antígeno amplio que los antisueros sí distinguen (B44 y B45 son los splits de B12; A23 y A24 los de A9; DR17 y DR18 los de DR3).</li>
+          <li><strong>Designación asociada a nivel alélico</strong>: la etiqueta que la OMS asigna a un alelo concreto cuando no corresponde a un antígeno serológico propio (A0201, Cw0702, B4402). Equivale a ese alelo, no al grupo.</li>
+        </ul>
+        <p>Existen dos tablas de equivalencias. La de la <strong>OMS</strong> es la que usa esta calculadora y la del artículo. La de <strong>HATS</strong> (<i>HLA Antigen Table, Serology</i>, la que emplea OPTN en Estados Unidos) asigna antígeno a muchos alelos que la OMS deja sin asignar, por lo que suele abarcar más alelos de la referencia. Cuando una entrada cambia con HATS, la columna «Estado» lo indica junto con el cPRA individual que resultaría; si la diferencia supera medio punto, conviene revisar si el reporte del laboratorio se refiere al alelo o a todo el grupo serológico. La única excepción es Bw4 y Bw6, que siempre se evalúan con HATS y solo en HLA-B, igual que en OPTN.</p>
+        <h2>Limitaciones</h2>
+        <ul>
+          <li>Herramienta de investigación. No es un sistema oficial de asignación ni sustituye la prueba cruzada, la evaluación del laboratorio de histocompatibilidad o el juicio clínico.</li>
+          <li>El resultado depende de la lista de antígenos inaceptables, y esta del umbral de MFI y de los criterios de cada laboratorio.</li>
+          <li>La referencia se estimó a resolución de dominio de reconocimiento antigénico (ARD). Por eso los alelos se agrupan por grupo P; un alelo cuyo grupo no aparece en la referencia aporta 0 y la calculadora lo señala.</li>
+          <li>La referencia proviene de un registro de donantes voluntarios de células hematopoyéticas, no de donantes renales fallecidos, y su composición regional no equivale a la distribución de la población ni de los donantes de órganos.</li>
+          <li>Las categorías de sensibilización son orientativas y provienen de la literatura; no son criterios oficiales de asignación en México.</li>
+          <li>No considera el grupo sanguíneo ni otros factores de compatibilidad.</li>
+        </ul>
+        <h2>Privacidad</h2>
+        <p>El cálculo se hace en el servidor de cPRA-MEX, donde permanecen las frecuencias haplotípicas; su navegador recibe solo los resultados. Los antígenos y los archivos que envía se usan únicamente para calcular: no se guardan y su contenido no se registra. El servidor conserva registros técnicos mínimos (fecha, dirección IP y tipo de consulta) por seguridad. La página no usa cookies ni servicios de análisis de terceros.</p>
+        <h2>Elaborado por</h2>
+        <ul class="autores">
+          <li>Erick Yasar Zuñiga González</li>
+          <li>Luis Agustin Camacho Murillo</li>
+          <li>Cynthia García Sanchez</li>
+          <li>Mariana Polett Sebastian Bolaños</li>
+          <li>Luis Eduardo Morales Buenrostro</li>
+        </ul>
+        <p>Contacto: <a href="mailto:info@cpra-mex.org">info@cpra-mex.org</a></p>
+        <p class="pie" id="version"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie-pagina contenedor">
+    <p>Elaborado por Erick Yasar Zuñiga González, Luis Agustin Camacho Murillo, Cynthia García Sanchez, Mariana Polett Sebastian Bolaños y Luis Eduardo Morales Buenrostro. Contacto: <a href="mailto:info@cpra-mex.org">info@cpra-mex.org</a></p>
+    <p>Frecuencias haplotípicas: NMDP México (Madbouly A, et al. <cite>Hum Immunol</cite>. 2025;86(4):111324. <a href="https://doi.org/10.1016/j.humimm.2025.111324" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.humimm.2025.111324</a>). Herramienta de investigación: no sustituye la prueba cruzada ni la evaluación del laboratorio de histocompatibilidad.</p>
+  </footer>
+
+  <svg width="0" height="0" class="oculto" aria-hidden="true">
+    <symbol id="persona" viewBox="0 0 20 44">
+      <ellipse cx="10" cy="5" rx="5" ry="4.2"/>
+      <path d="M3 11.5h14a1.5 1.5 0 0 1 1.5 1.5v14h-3.2v15h-4V29h-2.6v13h-4V27H1.5V13A1.5 1.5 0 0 1 3 11.5z"/>
+    </symbol>
+  </svg>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
